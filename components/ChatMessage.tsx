@@ -1,0 +1,111 @@
+
+import React from 'react';
+import { Message, AppointmentDetails, InformationChannelDetails, ServiceTicketDetails } from '../types';
+import { UserIcon, ChatBirdLogoIcon, LinkIcon } from './Icon';
+import AppointmentForm from './AppointmentForm';
+import InformationChannelForm from './InformationChannelForm';
+import ServiceTicketForm from './ServiceTicketForm';
+
+
+interface ChatMessageProps {
+  message: Message;
+  onAppointmentSubmit: (messageId: string, details: AppointmentDetails) => void;
+  onInfoChannelSubmit: (messageId: string, details: InformationChannelDetails) => void;
+  onServiceTicketSubmit: (messageId: string, details: ServiceTicketDetails) => void;
+}
+
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit, onInfoChannelSubmit, onServiceTicketSubmit }) => {
+  const isUser = message.sender === 'user';
+  
+  const getDisplaySlot = (isoString: string | undefined): string => {
+    if (!isoString) return 'your selected time';
+    try {
+        return new Date(isoString).toLocaleString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+        });
+    } catch {
+        return 'your selected time'
+    }
+  }
+
+
+  return (
+    <div className={`flex items-start gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+      <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-bold ${isUser ? 'bg-gray-600 text-white' : 'bg-blue-500 text-white'}`}>
+        {isUser ? <UserIcon className="w-6 h-6"/> : <ChatBirdLogoIcon className="w-6 h-6" />}
+      </div>
+      <div className="flex flex-col gap-2 max-w-xl w-full">
+        <div
+          className={`p-4 rounded-2xl shadow-sm whitespace-pre-wrap ${
+            isUser
+              ? 'bg-blue-500 text-white rounded-br-none'
+              : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-none border border-gray-200 dark:border-gray-600'
+          }`}
+        >
+          {message.text}
+           {message.type === 'appointment-confirmation' && message.bookingId && (
+              <div className="mt-3 pt-2 border-t border-white/20 dark:border-gray-600 text-xs">
+                <span className="font-semibold opacity-80">Booking ID:</span>
+                <span className="font-mono ml-2 bg-white/20 dark:bg-gray-800/50 px-1.5 py-0.5 rounded-sm">{message.bookingId}</span>
+              </div>
+          )}
+        </div>
+        
+        {message.sources && message.sources.length > 0 && (
+          <div className="pt-2 pb-2 pl-1">
+            <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 tracking-wide mb-2">Sources</h4>
+            <ul className="space-y-2">
+              {message.sources.map((source, index) => (
+                <li key={index}>
+                  <a href={source.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline text-sm group">
+                    <LinkIcon className="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition" />
+                    <span className="truncate" title={source.title}>{source.title || source.uri}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {message.type === 'appointment-form' && (
+            <div className={`transition-opacity duration-500 ${message.isSubmitted ? 'opacity-60' : 'opacity-100'}`}>
+                <AppointmentForm
+                    messageId={message.id}
+                    onSubmit={onAppointmentSubmit}
+                    isSubmitted={!!message.isSubmitted}
+                    availableSlots={message.availableSlots || new Map()}
+                    isCalendarLoading={!!message.isCalendarLoading}
+                />
+            </div>
+        )}
+
+        {message.type === 'info-channel-form' && (
+             <div className={`transition-opacity duration-500 ${message.isSubmitted ? 'opacity-60' : 'opacity-100'}`}>
+                <InformationChannelForm
+                    messageId={message.id}
+                    onSubmit={onInfoChannelSubmit}
+                    isSubmitted={!!message.isSubmitted}
+                />
+            </div>
+        )}
+        
+        {message.type === 'service-ticket-form' && (
+            <div className={`transition-opacity duration-500 ${message.isSubmitted ? 'opacity-60' : 'opacity-100'}`}>
+                <ServiceTicketForm
+                    messageId={message.id}
+                    onSubmit={onServiceTicketSubmit}
+                    isSubmitted={!!message.isSubmitted}
+                />
+            </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ChatMessage;

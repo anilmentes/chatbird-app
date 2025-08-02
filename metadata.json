@@ -1,0 +1,6 @@
+{
+  "name": "ChatBird",
+  "description": "ChatBird, a helpful AI assistant for customers of BirdVision, providing answers to questions about the company and its services.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
