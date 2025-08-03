@@ -35,7 +35,6 @@ export interface Message {
   isSubmitted?: boolean; // Kept for visual feedback on forms after submission
   availableSlots?: Map<string, Date[]>;
   isCalendarLoading?: boolean; // For showing loading state on appointment form
-  calendarError?: string | null; // For calendar-specific errors
   sources?: WebSource[];
   bookingId?: string;
 }

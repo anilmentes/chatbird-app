@@ -3,8 +3,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { AppointmentDetails } from '../../types';
 
 // Helper function to find a contact by email
-const findContactByEmail = async (email: string, apiKey: string, hubspotApiDomain: string): Promise<string | null> => {
-    const searchUrl = `https://${hubspotApiDomain}/crm/v3/objects/contacts/search`;
+const findContactByEmail = async (email: string, apiKey: string): Promise<string | null> => {
+    const searchUrl = 'https://api.hubapi.com/crm/v3/objects/contacts/search';
     const response = await fetch(searchUrl, {
         method: 'POST',
         headers: {
@@ -34,8 +34,8 @@ const findContactByEmail = async (email: string, apiKey: string, hubspotApiDomai
 };
 
 // Helper function to create a new contact
-const createContact = async (details: { email: string, name: string, company?: string }, apiKey: string, hubspotApiDomain: string): Promise<string | null> => {
-    const createUrl = `https://${hubspotApiDomain}/crm/v3/objects/contacts`;
+const createContact = async (details: { email: string, name: string, company?: string }, apiKey: string): Promise<string | null> => {
+    const createUrl = 'https://api.hubapi.com/crm/v3/objects/contacts';
     const [firstName, ...lastNameParts] = details.name.split(' ');
     const lastName = lastNameParts.join(' ');
 
@@ -76,29 +76,15 @@ export default async function handler(
   try {
     const details: AppointmentDetails = request.body;
     const hubspotApiKey = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
-    const meetingUrl = process.env.HUBSPOT_MEETING_URL;
 
     if (!hubspotApiKey) {
       throw new Error("HUBSPOT_PRIVATE_APP_TOKEN environment variable not set.");
     }
-    
-    // Determine the API domain from the meeting URL, with a fallback
-    let hubspotApiDomain = 'api.hubapi.com';
-    if(meetingUrl) {
-      try {
-        const parsedUrl = new URL(meetingUrl);
-        if (parsedUrl.hostname.includes('meetings-')) {
-          hubspotApiDomain = parsedUrl.hostname.replace('meetings-', 'api.');
-        }
-      } catch (e) {
-        console.warn("Could not parse HUBSPOT_MEETING_URL, falling back to default API domain.", e);
-      }
-    }
 
     // Step 1: Find or create a contact
-    let contactId = await findContactByEmail(details.email, hubspotApiKey, hubspotApiDomain);
+    let contactId = await findContactByEmail(details.email, hubspotApiKey);
     if (!contactId) {
-        contactId = await createContact(details, hubspotApiKey, hubspotApiDomain);
+        contactId = await createContact(details, hubspotApiKey);
     }
     
     // Step 2: Create the meeting payload
@@ -127,7 +113,7 @@ export default async function handler(
     }
 
     // Step 4: Create the meeting in HubSpot
-    const apiResponse = await fetch(`https://${hubspotApiDomain}/crm/v3/objects/meetings`, {
+    const apiResponse = await fetch('https://api.hubapi.com/crm/v3/objects/meetings', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${hubspotApiKey}`,

@@ -12,7 +12,6 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<Map<string, Date[]>>(new Map());
   const [isCalendarLoading, setIsCalendarLoading] = useState<boolean>(true);
-  const [calendarError, setCalendarError] = useState<string | null>(null);
 
   useEffect(() => {
     // Set initial greeting messages
@@ -33,8 +32,6 @@ const App: React.FC = () => {
     
     // Fetch real-time availability from HubSpot via our secure backend
     const fetchAvailability = async () => {
-        setIsCalendarLoading(true);
-        setCalendarError(null);
         try {
             const response = await fetch('/api/get-availability');
             if (!response.ok) {
@@ -52,7 +49,8 @@ const App: React.FC = () => {
             setAvailableSlots(slotsMap);
         } catch (err) {
              console.error("Error fetching availability:", err);
-             setCalendarError("Could not connect to the booking calendar. Please ensure the HubSpot integration is configured correctly with the necessary permissions (scopes).");
+             // Silently fail for the user, the form will show no available slots.
+             // A more robust solution could show a specific error message on the calendar.
         } finally {
             setIsCalendarLoading(false);
         }
@@ -90,7 +88,6 @@ const App: React.FC = () => {
             type: 'appointment-form',
             availableSlots: availableSlots, // Use real slots from state
             isCalendarLoading: isCalendarLoading,
-            calendarError: calendarError,
             sources: sources,
           };
           break;
@@ -166,7 +163,7 @@ const App: React.FC = () => {
 
     try {
       // Call the secure backend endpoint
-      const response = await fetch('/api/create-appointment', {
+      const response = await fetch('/api/create-meeting', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(details),
@@ -177,7 +174,7 @@ const App: React.FC = () => {
           throw new Error(errorData.message || 'Failed to book appointment.');
       }
       
-      const { appointmentId } = await response.json();
+      const { meetingId } = await response.json();
 
       // Create a success confirmation message
       const confirmationMessage: Message = {
@@ -185,11 +182,11 @@ const App: React.FC = () => {
         text: `Thank you, ${details.name}! Your appointment for ${formatFullSlotForDisplay(details.selectedSlot)} has been successfully booked.`,
         sender: 'bot',
         type: 'appointment-confirmation',
-        bookingId: appointmentId,
+        bookingId: meetingId,
       };
 
       setMessages(prevMessages => [...prevMessages, confirmationMessage]);
-      console.log("HubSpot Appointment Successfully Created:", { details, appointmentId });
+      console.log("HubSpot Appointment Successfully Created:", { details, meetingId });
 
     } catch (apiError) {
       console.error("HubSpot API Error:", apiError);

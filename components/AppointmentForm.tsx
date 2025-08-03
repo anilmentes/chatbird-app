@@ -10,10 +10,9 @@ interface AppointmentFormProps {
     isSubmitted: boolean;
     availableSlots: Map<string, Date[]>;
     isCalendarLoading: boolean;
-    calendarError: string | null;
 }
 
-const AppointmentForm: React.FC<AppointmentFormProps> = ({ messageId, onSubmit, isSubmitted, availableSlots, isCalendarLoading, calendarError }) => {
+const AppointmentForm: React.FC<AppointmentFormProps> = ({ messageId, onSubmit, isSubmitted, availableSlots, isCalendarLoading }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [company, setCompany] = useState('');
@@ -23,11 +22,23 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ messageId, onSubmit, 
     const [selectedTime, setSelectedTime] = useState<Date | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [touched, setTouched] = useState(false);
+    
+    // This function is for display purposes in the confirmation message
+    const formatFullSlotForDisplay = (date: Date): string => {
+        return date.toLocaleString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+        });
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setTouched(true);
-        if (isSubmitted || isSubmitting || !selectedTime || calendarError) return;
+        if (isSubmitted || isSubmitting || !selectedTime) return;
         setIsSubmitting(true);
         // The backend expects an ISO string for the selected slot
         const selectedSlotISO = selectedTime.toISOString();
@@ -83,28 +94,18 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ messageId, onSubmit, 
                             <div className="mt-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600 text-center text-gray-500 dark:text-gray-400">
                                 <p>Loading calendar...</p>
                             </div>
-                         ) : calendarError ? (
-                            <div className="mt-4 bg-red-50 dark:bg-red-900/40 p-4 rounded-lg border border-red-200 dark:border-red-700 text-center text-red-700 dark:text-red-200">
-                                <p className="font-semibold">Error Loading Calendar</p>
-                                <p className="text-sm mt-1">{calendarError}</p>
-                            </div>
                          ) : (
-                            <>
-                                <CalendarView 
-                                    slots={availableSlots}
-                                    currentMonth={currentMonth}
-                                    onMonthChange={setCurrentMonth}
-                                    selectedDate={selectedDate}
-                                    onDateSelect={handleDateSelect}
-                                />
-                                {availableSlots.size === 0 && (
-                                     <div className="text-center text-gray-500 dark:text-gray-400 text-sm mt-2">
-                                        <p>No appointment slots are available in the next 60 days. Please check back later.</p>
-                                    </div>
-                                )}
-                            </>
+                            <CalendarView 
+                                slots={availableSlots}
+                                currentMonth={currentMonth}
+                                onMonthChange={setCurrentMonth}
+                                selectedDate={selectedDate}
+                                onDateSelect={handleDateSelect}
+                            />
                          )}
                     </div>
+                     {touched && !selectedTime && <p className="text-red-500 text-xs -mt-2 text-center font-medium">Please select a date and time to proceed.</p>}
+
 
                     {selectedDate && availableSlots.has(selectedDate) && (
                         <div>
@@ -128,14 +129,10 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ messageId, onSubmit, 
                             </div>
                         </div>
                     )}
-                    
-                    {touched && !selectedTime && !calendarError && (
-                        <p className="text-red-500 text-xs text-center font-medium">Please select an available date and time to proceed.</p>
-                    )}
 
                     <button 
                         type="submit" 
-                        disabled={!selectedTime || isSubmitted || isSubmitting || !!calendarError}
+                        disabled={!selectedTime || isSubmitted || isSubmitting}
                         className="mt-6 w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400 dark:disabled:bg-blue-800 disabled:cursor-not-allowed transition"
                     >
                         {isSubmitted ? 'Request Sent!' : isSubmitting ? 'Submitting...' : 'Submit Request'}

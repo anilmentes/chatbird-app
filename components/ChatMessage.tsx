@@ -80,7 +80,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit,
                     isSubmitted={!!message.isSubmitted}
                     availableSlots={message.availableSlots || new Map()}
                     isCalendarLoading={!!message.isCalendarLoading}
-                    calendarError={message.calendarError || null}
                 />
             </div>
         )}

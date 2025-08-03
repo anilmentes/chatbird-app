@@ -19,25 +19,19 @@ export default async function handler(
   
   try {
     const hubspotApiKey = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
-    const meetingUrl = process.env.HUBSPOT_MEETING_URL;
+    const schedulingLink = process.env.HUBSPOT_SCHEDULING_LINK;
 
-    if (!hubspotApiKey || !meetingUrl) {
-      console.error("Server configuration error: Missing HubSpot environment variables (HUBSPOT_PRIVATE_APP_TOKEN or HUBSPOT_MEETING_URL).");
+    if (!hubspotApiKey || !schedulingLink) {
+      console.error("Missing HubSpot Environment Variables");
       throw new Error("Server configuration error: Missing HubSpot credentials.");
     }
-
-    const parsedUrl = new URL(meetingUrl);
-    const schedulingLink = parsedUrl.pathname.substring(1); // Remove leading '/'
-    const hubspotApiDomain = parsedUrl.hostname.includes('meetings-')
-      ? parsedUrl.hostname.replace('meetings-', 'api.')
-      : 'api.hubapi.com'; // Fallback for standard non-regional URLs
     
     const now = new Date();
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 60); // Look 60 days into the future
 
-    const availabilityUrl = `https://${hubspotApiDomain}/meetings/v3/availability/public/availability/${schedulingLink}?startTime=${startDate.toISOString()}&endTime=${endDate.toISOString()}`;
+    const availabilityUrl = `https://api.hubapi.com/meetings/v3/availability/public/availability/${schedulingLink}?startTime=${startDate.toISOString()}&endTime=${endDate.toISOString()}`;
     
     const apiResponse = await fetch(availabilityUrl, {
       method: 'GET',
@@ -48,7 +42,7 @@ export default async function handler(
 
     if (!apiResponse.ok) {
         const errorText = await apiResponse.text();
-        console.error(`HubSpot Availability API Error. URL: ${availabilityUrl}. Status: ${apiResponse.status}. Response: ${errorText}`);
+        console.error('HubSpot Availability API Error:', errorText);
         throw new Error(`Failed to fetch availability from HubSpot. Status: ${apiResponse.status}`);
     }
 
