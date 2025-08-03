@@ -19,13 +19,18 @@ export default async function handler(
   
   try {
     const hubspotApiKey = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
-    const schedulingLink = process.env.HUBSPOT_SCHEDULING_LINK;
-    const hubspotApiDomain = process.env.HUBSPOT_API_DOMAIN || 'api.hubapi.com';
+    const meetingUrl = process.env.HUBSPOT_MEETING_URL;
 
-    if (!hubspotApiKey || !schedulingLink) {
-      console.error("Missing HubSpot Environment Variables");
+    if (!hubspotApiKey || !meetingUrl) {
+      console.error("Server configuration error: Missing HubSpot environment variables (HUBSPOT_PRIVATE_APP_TOKEN or HUBSPOT_MEETING_URL).");
       throw new Error("Server configuration error: Missing HubSpot credentials.");
     }
+
+    const parsedUrl = new URL(meetingUrl);
+    const schedulingLink = parsedUrl.pathname.substring(1); // Remove leading '/'
+    const hubspotApiDomain = parsedUrl.hostname.includes('meetings-')
+      ? parsedUrl.hostname.replace('meetings-', 'api.')
+      : 'api.hubapi.com'; // Fallback for standard non-regional URLs
     
     const now = new Date();
     const startDate = new Date();
@@ -43,7 +48,7 @@ export default async function handler(
 
     if (!apiResponse.ok) {
         const errorText = await apiResponse.text();
-        console.error('HubSpot Availability API Error:', errorText);
+        console.error(`HubSpot Availability API Error. URL: ${availabilityUrl}. Status: ${apiResponse.status}. Response: ${errorText}`);
         throw new Error(`Failed to fetch availability from HubSpot. Status: ${apiResponse.status}`);
     }
 

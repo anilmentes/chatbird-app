@@ -101,52 +101,53 @@ export default async function handler(
         contactId = await createContact(details, hubspotApiKey, hubspotApiDomain);
     }
     
-    // Step 2: Create the meeting payload
+    // Step 2: Create the appointment payload
     const startTime = new Date(details.selectedSlot);
     const endTime = new Date(startTime.getTime() + 30 * 60000); // 30 min meeting
 
-    const meetingPayload: any = {
+    const appointmentPayload: any = {
       properties: {
-        hs_meeting_title: `Appointment with ${details.name}`,
-        hs_meeting_body: `Scheduled via ChatBird.\n\nCompany: ${details.company || 'N/A'}\nEmail: ${details.email}\nNotes: ${details.notes}`,
-        hs_meeting_start_time: startTime.toISOString(),
-        hs_meeting_end_time: endTime.toISOString(),
+        hs_appointment_title: `Appointment with ${details.name}`,
+        hs_body: `Scheduled via ChatBird.\n\nCompany: ${details.company || 'N/A'}\nEmail: ${details.email}\nNotes: ${details.notes}`,
+        hs_timestamp: startTime.toISOString(),
+        hs_appointment_start_time: startTime.toISOString(),
+        hs_appointment_end_time: endTime.toISOString(),
       },
     };
 
     // Step 3: Add association if we have a contact ID
     if (contactId) {
-        meetingPayload.associations = [{
+        appointmentPayload.associations = [{
             to: { id: contactId },
             types: [{
                 associationCategory: "HUBSPOT_DEFINED",
-                // This is the ID for "Meeting to Contact"
-                associationTypeId: 204
+                // This is the ID for "Contact to Appointment"
+                associationTypeId: 194
             }]
         }];
     }
 
-    // Step 4: Create the meeting in HubSpot
-    const apiResponse = await fetch(`https://${hubspotApiDomain}/crm/v3/objects/meetings`, {
+    // Step 4: Create the appointment in HubSpot
+    const apiResponse = await fetch(`https://${hubspotApiDomain}/crm/v3/objects/appointments`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${hubspotApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(meetingPayload),
+      body: JSON.stringify(appointmentPayload),
     });
 
     if (!apiResponse.ok) {
       const errorBody = await apiResponse.json();
       console.error('HubSpot API Error:', errorBody);
-      throw new Error(errorBody.message || 'Failed to create meeting in HubSpot.');
+      throw new Error(errorBody.message || 'Failed to create appointment in HubSpot.');
     }
 
     const responseData = await apiResponse.json();
-    return response.status(200).json({ meetingId: responseData.id });
+    return response.status(200).json({ appointmentId: responseData.id });
 
   } catch (error) {
-    console.error('Error in create-meeting function:', error);
+    console.error('Error in create-appointment function:', error);
     const message = error instanceof Error ? error.message : 'An unknown internal error occurred.';
     return response.status(500).json({ message });
   }
