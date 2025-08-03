@@ -20,6 +20,7 @@ export default async function handler(
   try {
     const hubspotApiKey = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
     const schedulingLink = process.env.HUBSPOT_SCHEDULING_LINK;
+    const hubspotApiDomain = process.env.HUBSPOT_API_DOMAIN || 'api.hubapi.com';
 
     if (!hubspotApiKey || !schedulingLink) {
       console.error("Missing HubSpot Environment Variables");
@@ -31,7 +32,7 @@ export default async function handler(
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 60); // Look 60 days into the future
 
-    const availabilityUrl = `https://api.hubapi.com/meetings/v3/availability/public/availability/${schedulingLink}?startTime=${startDate.toISOString()}&endTime=${endDate.toISOString()}`;
+    const availabilityUrl = `https://${hubspotApiDomain}/meetings/v3/availability/public/availability/${schedulingLink}?startTime=${startDate.toISOString()}&endTime=${endDate.toISOString()}`;
     
     const apiResponse = await fetch(availabilityUrl, {
       method: 'GET',

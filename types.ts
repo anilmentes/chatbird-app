@@ -14,11 +14,10 @@ export interface InformationChannelDetails {
 }
 
 export interface ServiceTicketDetails {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   company?: string;
-  location: string;
-  turbineId?: string;
   description: string;
 }
 

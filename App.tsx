@@ -233,7 +233,7 @@ const App: React.FC = () => {
 
     const confirmationMessage: Message = {
       id: `bot-ticket-confirmation-${Date.now()}`,
-      text: `Thank you, ${details.name}! Your service ticket has been created. A support team member will contact you at ${details.email} shortly.`,
+      text: `Thank you, ${details.firstName}! Your service ticket has been created. A support team member will contact you at ${details.email} shortly.`,
       sender: 'bot',
       type: 'service-ticket-confirmation',
     };

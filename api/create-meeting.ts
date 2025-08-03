@@ -2,9 +2,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { AppointmentDetails } from '../../types';
 
+const hubspotApiDomain = process.env.HUBSPOT_API_DOMAIN || 'api.hubapi.com';
+
 // Helper function to find a contact by email
 const findContactByEmail = async (email: string, apiKey: string): Promise<string | null> => {
-    const searchUrl = 'https://api.hubapi.com/crm/v3/objects/contacts/search';
+    const searchUrl = `https://${hubspotApiDomain}/crm/v3/objects/contacts/search`;
     const response = await fetch(searchUrl, {
         method: 'POST',
         headers: {
@@ -35,7 +37,7 @@ const findContactByEmail = async (email: string, apiKey: string): Promise<string
 
 // Helper function to create a new contact
 const createContact = async (details: { email: string, name: string, company?: string }, apiKey: string): Promise<string | null> => {
-    const createUrl = 'https://api.hubapi.com/crm/v3/objects/contacts';
+    const createUrl = `https://${hubspotApiDomain}/crm/v3/objects/contacts`;
     const [firstName, ...lastNameParts] = details.name.split(' ');
     const lastName = lastNameParts.join(' ');
 
@@ -113,7 +115,7 @@ export default async function handler(
     }
 
     // Step 4: Create the meeting in HubSpot
-    const apiResponse = await fetch('https://api.hubapi.com/crm/v3/objects/meetings', {
+    const apiResponse = await fetch(`https://${hubspotApiDomain}/crm/v3/objects/meetings`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${hubspotApiKey}`,
