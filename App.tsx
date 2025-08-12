@@ -11,255 +11,204 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<Map<string, Date[]>>(new Map());
-  const [isCalendarLoading, setIsCalendarLoading] = useState<boolean>(true);
+  const [isCalendarLoading, setIsCalendarLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    // Set initial greeting messages
+    // Initial greeting message from the bot with quick action buttons
     setMessages([
       {
-        id: 'initial-1',
-        text: 'Hello! I am ChatBird, your AI assistant. How can I help you today?',
+        id: 'init-bot-message',
+        text: "Hello! I'm ChatBird, your assistant for BirdVision. How can I help you today?",
         sender: 'bot',
-        type: 'text',
+        type: 'initial-options'
       },
-       {
-        id: 'initial-2',
-        text: 'You can ask me about our company, subscribe to information channels, request service, or schedule an appointment.',
-        sender: 'bot',
-        type: 'text',
-      }
     ]);
-    
-    // Fetch real-time availability from HubSpot via our secure backend
-    const fetchAvailability = async () => {
-        try {
-            const response = await fetch('/api/get-availability');
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to fetch calendar availability.');
-            }
-            const data = await response.json();
-            // The data from backend is serialized. We need to convert string dates back to Date objects.
-            const slotsMap = new Map<string, Date[]>(
-                data.slots.map(([day, times]: [string, string[]]) => [
-                    day,
-                    times.map(t => new Date(t))
-                ])
-            );
-            setAvailableSlots(slotsMap);
-        } catch (err) {
-             console.error("Error fetching availability:", err);
-             // Silently fail for the user, the form will show no available slots.
-             // A more robust solution could show a specific error message on the calendar.
-        } finally {
-            setIsCalendarLoading(false);
-        }
-    };
-
-    fetchAvailability();
   }, []);
+  
+  const addErrorMessage = (text: string) => {
+      setMessages(prev => [...prev, {
+        id: `err-${Date.now()}`,
+        text,
+        sender: 'bot',
+        type: 'text'
+      }]);
+  };
+
+  const fetchAvailableSlots = async (messageId: string) => {
+    setIsCalendarLoading(true);
+    setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, isCalendarLoading: true } : msg));
+    try {
+        const response = await fetch('/api/get-availability');
+        if (!response.ok) throw new Error('Failed to fetch availability.');
+        const data = await response.json();
+        const slotsMap = new Map<string, Date[]>(data.slots.map(([day, times]: [string, string[]]) => [
+            day,
+            times.map(t => new Date(t))
+        ]));
+        setAvailableSlots(slotsMap);
+        setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, availableSlots: slotsMap, isCalendarLoading: false } : msg));
+    } catch (e) {
+        console.error(e);
+        addErrorMessage("Sorry, I couldn't load the appointment calendar right now. Please try again later.");
+        setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, isCalendarLoading: false, isSubmitted: true } : msg));
+    } finally {
+        setIsCalendarLoading(false);
+        // Ensure the loading state is removed from the specific message
+        setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, isCalendarLoading: false } : msg));
+    }
+  };
+
+  const handleInitialOptionClick = (prompt: string) => {
+    // Hide the options after one is clicked by marking the message as 'submitted'
+    setMessages(prev => prev.map(msg =>
+      msg.id === 'init-bot-message' ? { ...msg, isSubmitted: true } : msg
+    ));
+    // Then, send the corresponding message to the bot
+    handleSendMessage(prompt);
+  };
 
   const handleSendMessage = async (inputText: string) => {
-    if (!inputText.trim()) return;
-
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       text: inputText,
       sender: 'user',
       type: 'text',
     };
-
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     setError(null);
 
     try {
-      // Pass the message history to Gemini for better context
-      const { text: botResponseText, requestType, sources } = await sendMessageToGemini(inputText, newMessages);
-      let botMessage: Message;
-      
-      switch(requestType) {
+      const { text, requestType, sources } = await sendMessageToGemini(inputText, messages);
+
+      const botMessage: Message = {
+        id: `bot-${Date.now()}`,
+        text: text,
+        sender: 'bot',
+        sources: sources,
+      };
+
+      switch (requestType) {
         case 'appointment':
-          botMessage = {
-            id: `bot-form-${Date.now()}`,
-            text: botResponseText,
-            sender: 'bot',
-            type: 'appointment-form',
-            availableSlots: availableSlots, // Use real slots from state
-            isCalendarLoading: isCalendarLoading,
-            sources: sources,
-          };
+          botMessage.type = 'appointment-form';
+          fetchAvailableSlots(botMessage.id);
           break;
         case 'info-channel':
-           botMessage = {
-            id: `bot-form-${Date.now()}`,
-            text: botResponseText,
-            sender: 'bot',
-            type: 'info-channel-form',
-            sources: sources,
-          };
+          botMessage.type = 'info-channel-form';
           break;
         case 'service-ticket':
-           botMessage = {
-            id: `bot-form-${Date.now()}`,
-            text: botResponseText,
-            sender: 'bot',
-            type: 'service-ticket-form',
-            sources: sources,
-          };
-          break;
+            botMessage.type = 'service-ticket-form';
+            break;
         default:
-          botMessage = {
-            id: `bot-${Date.now()}`,
-            text: botResponseText,
-            sender: 'bot',
-            type: 'text',
-            sources: sources,
-          };
-          break;
+          botMessage.type = 'text';
       }
+      setMessages(prev => [...prev, botMessage]);
 
-      setMessages(prevMessages => [...prevMessages, botMessage]);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-      setError('Sorry, I am having trouble connecting. Please try again later.');
-      console.error(errorMessage);
-       const botError: Message = {
-        id: `bot-error-${Date.now()}`,
-        text: 'Sorry, I am having trouble connecting. Please try again later.',
-        sender: 'bot',
-        type: 'text',
-      };
-      setMessages(prevMessages => [...prevMessages, botError]);
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
+      addErrorMessage(`Sorry, something went wrong. ${errorMessage}`);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formatFullSlotForDisplay = (isoString: string): string => {
-    if (!isoString) return 'your selected time';
-    try {
-        return new Date(isoString).toLocaleString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true,
-        });
-    } catch {
-        return 'your selected time';
-    }
-  };
-
   const handleAppointmentSubmit = async (messageId: string, details: AppointmentDetails) => {
-    // Immediately mark the form as submitted to disable it
-    setMessages(prevMessages =>
-      prevMessages.map(msg =>
-        msg.id === messageId ? { ...msg, isSubmitted: true } : msg
-      )
-    );
+     setMessages(prev => prev.map(msg => (msg.id === messageId ? { ...msg, isSubmitted: true } : msg)));
+     
+     try {
+        const response = await fetch('/api/create-meeting', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(details)
+        });
+        if(!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to book appointment.');
+        }
+        const { meetingId } = await response.json();
+        
+        const selectedDate = new Date(details.selectedSlot);
+        const confirmationText = `Thank you, ${details.name}. Your appointment for ${selectedDate.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })} is confirmed. A confirmation has been sent to ${details.email}.`;
 
-    try {
-      // Call the secure backend endpoint
-      const response = await fetch('/api/create-meeting', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(details),
-      });
+        const confirmationMessage: Message = {
+          id: `bot-${Date.now()}`,
+          sender: 'bot',
+          type: 'appointment-confirmation',
+          text: confirmationText,
+          bookingId: meetingId,
+        };
+        setMessages(prev => [...prev, confirmationMessage]);
 
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to book appointment.');
-      }
-      
-      const { meetingId } = await response.json();
-
-      // Create a success confirmation message
-      const confirmationMessage: Message = {
-        id: `bot-confirmation-${Date.now()}`,
-        text: `Thank you, ${details.name}! Your appointment for ${formatFullSlotForDisplay(details.selectedSlot)} has been successfully booked.`,
-        sender: 'bot',
-        type: 'appointment-confirmation',
-        bookingId: meetingId,
-      };
-
-      setMessages(prevMessages => [...prevMessages, confirmationMessage]);
-      console.log("HubSpot Appointment Successfully Created:", { details, meetingId });
-
-    } catch (apiError) {
-      console.error("HubSpot API Error:", apiError);
-      
-      const errorMessageText = apiError instanceof Error ? apiError.message : "We're sorry, but we couldn't book your appointment at this time. Please try again later or contact us directly.";
-      
-      // Create an error message for the user in the chat
-      const errorMessage: Message = {
-        id: `bot-error-${Date.now()}`,
-        text: errorMessageText,
-        sender: 'bot',
-        type: 'text',
-      };
-       setMessages(prevMessages => [...prevMessages, errorMessage]);
-    }
-  };
-
-  const handleInfoChannelSubmit = (messageId: string, details: InformationChannelDetails) => {
-    setMessages(prevMessages =>
-      prevMessages.map(msg =>
-        msg.id === messageId ? { ...msg, isSubmitted: true } : msg
-      )
-    );
-
-    const confirmationMessage: Message = {
-      id: `bot-info-confirmation-${Date.now()}`,
-      text: `Thank you, ${details.name}! You've been subscribed to the "${details.channel}" channel. We'll send updates to ${details.email}.`,
-      sender: 'bot',
-      type: 'info-channel-confirmation',
-    };
-
-    console.log("Information Channel Subscription:", details);
-     setTimeout(() => {
-      setMessages(prevMessages => [...prevMessages, confirmationMessage]);
-    }, 500);
+     } catch(e) {
+        console.error(e);
+        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while booking.";
+        addErrorMessage(`There was a problem confirming your appointment. ${errorMessage}`);
+     }
   };
   
-  const handleServiceTicketSubmit = (messageId: string, details: ServiceTicketDetails) => {
-     setMessages(prevMessages =>
-      prevMessages.map(msg =>
+  const handleInfoChannelSubmit = (messageId: string, details: InformationChannelDetails) => {
+    // This is a mock submission as we don't have a backend for it yet.
+    setMessages(prev =>
+      prev.map(msg =>
         msg.id === messageId ? { ...msg, isSubmitted: true } : msg
       )
     );
-
     const confirmationMessage: Message = {
-      id: `bot-ticket-confirmation-${Date.now()}`,
-      text: `Thank you, ${details.firstName}! Your service ticket has been created. A support team member will contact you at ${details.email} shortly.`,
+      id: `bot-${Date.now()}`,
       sender: 'bot',
-      type: 'service-ticket-confirmation',
+      type: 'info-channel-confirmation',
+      text: `Thank you, ${details.name}! You have been subscribed to the "${details.channel}" channel. We'll send updates to ${details.email}.`,
     };
-    
-    console.log("Service Ticket Request:", details);
-     setTimeout(() => {
-      setMessages(prevMessages => [...prevMessages, confirmationMessage]);
-    }, 500);
+    setMessages(prev => [...prev, confirmationMessage]);
+    console.log("Info Channel Subscription:", details);
+  };
+  
+  const handleServiceTicketSubmit = async (messageId: string, details: ServiceTicketDetails) => {
+      setMessages(prev => prev.map(msg => (msg.id === messageId ? { ...msg, isSubmitted: true } : msg)));
+
+      try {
+          const response = await fetch('/api/create-ticket', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(details)
+          });
+
+          if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.message || 'Failed to submit service ticket.');
+          }
+
+          const { ticketId } = await response.json();
+
+          const confirmationMessage: Message = {
+              id: `bot-${Date.now()}`,
+              sender: 'bot',
+              type: 'service-ticket-confirmation',
+              text: `Thank you, ${details.firstName}. Your service ticket has been created. We will get back to you at ${details.email} shortly.`,
+              ticketId: ticketId,
+          };
+          setMessages(prev => [...prev, confirmationMessage]);
+
+      } catch (e) {
+          console.error(e);
+          const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while creating the ticket.";
+          addErrorMessage(`There was a problem submitting your ticket. ${errorMessage}`);
+      }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900 font-sans">
+    <div className="flex flex-col h-screen font-sans bg-gray-100 dark:bg-gray-900">
       <Header />
-      <div className="flex-grow flex flex-col items-center justify-center p-4 overflow-hidden">
-          <div className="w-full max-w-4xl h-full flex flex-col bg-white dark:bg-gray-800 shadow-2xl rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
-            <ChatWindow 
-              messages={messages} 
-              isLoading={isLoading} 
-              onAppointmentSubmit={handleAppointmentSubmit}
-              onInfoChannelSubmit={handleInfoChannelSubmit}
-              onServiceTicketSubmit={handleServiceTicketSubmit}
-            />
-            <MessageInput onSendMessage={handleSendMessage} isLoading={isLoading} />
-            {error && <p className="text-center text-red-500 text-sm p-2">{error}</p>}
-          </div>
-      </div>
+      <ChatWindow
+        messages={messages}
+        isLoading={isLoading}
+        onAppointmentSubmit={handleAppointmentSubmit}
+        onInfoChannelSubmit={handleInfoChannelSubmit}
+        onServiceTicketSubmit={handleServiceTicketSubmit}
+        onInitialOptionClick={handleInitialOptionClick}
+      />
+      <MessageInput onSendMessage={handleSendMessage} isLoading={isLoading} />
     </div>
   );
 };

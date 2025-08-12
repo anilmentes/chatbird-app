@@ -30,10 +30,11 @@ export interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot';
-  type?: 'text' | 'appointment-form' | 'appointment-confirmation' | 'info-channel-form' | 'info-channel-confirmation' | 'service-ticket-form' | 'service-ticket-confirmation';
+  type?: 'text' | 'appointment-form' | 'appointment-confirmation' | 'info-channel-form' | 'info-channel-confirmation' | 'service-ticket-form' | 'service-ticket-confirmation' | 'initial-options';
   isSubmitted?: boolean; // Kept for visual feedback on forms after submission
   availableSlots?: Map<string, Date[]>;
   isCalendarLoading?: boolean; // For showing loading state on appointment form
   sources?: WebSource[];
   bookingId?: string;
+  ticketId?: string;
 }

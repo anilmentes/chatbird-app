@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { Message, AppointmentDetails, InformationChannelDetails, ServiceTicketDetails } from '../types';
 import ChatMessage from './ChatMessage';
@@ -9,9 +10,10 @@ interface ChatWindowProps {
   onAppointmentSubmit: (messageId: string, details: AppointmentDetails) => void;
   onInfoChannelSubmit: (messageId: string, details: InformationChannelDetails) => void;
   onServiceTicketSubmit: (messageId: string, details: ServiceTicketDetails) => void;
+  onInitialOptionClick: (prompt: string) => void;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onAppointmentSubmit, onInfoChannelSubmit, onServiceTicketSubmit }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onAppointmentSubmit, onInfoChannelSubmit, onServiceTicketSubmit, onInitialOptionClick }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,6 +30,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onAppointm
             onAppointmentSubmit={onAppointmentSubmit}
             onInfoChannelSubmit={onInfoChannelSubmit}
             onServiceTicketSubmit={onServiceTicketSubmit}
+            onInitialOptionClick={onInitialOptionClick}
            />
         ))}
         {isLoading && (
