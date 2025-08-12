@@ -1,23 +1,20 @@
 
 import React from 'react';
-import { Message, InformationChannelDetails, ServiceTicketDetails, AppointmentDetails } from '../types';
+import { Message, InformationChannelDetails, ServiceTicketDetails } from '../types';
 import { UserIcon, ChatBirdLogoIcon, LinkIcon, CalendarIcon, WrenchIcon, EnvelopeIcon } from './Icon';
 import InformationChannelForm from './InformationChannelForm';
 import ServiceTicketForm from './ServiceTicketForm';
-import AppointmentForm from './AppointmentForm';
+import HubSpotMeeting from './HubSpotMeeting';
 
 
 interface ChatMessageProps {
   message: Message;
-  onAppointmentSubmit: (messageId: string, details: AppointmentDetails) => void;
   onInfoChannelSubmit: (messageId: string, details: InformationChannelDetails) => void;
   onServiceTicketSubmit: (messageId: string, details: ServiceTicketDetails) => void;
   onInitialOptionClick: (prompt: string) => void;
-  availableSlots: Map<string, Date[]>;
-  isCalendarLoading: boolean;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit, onInfoChannelSubmit, onServiceTicketSubmit, onInitialOptionClick, availableSlots, isCalendarLoading }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onInfoChannelSubmit, onServiceTicketSubmit, onInitialOptionClick }) => {
   const isUser = message.sender === 'user';
   
   return (
@@ -34,18 +31,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit,
           }`}
         >
           {message.text}
-          {message.type === 'appointment-confirmation' && message.appointmentDetails && (
-              <div className="mt-3 pt-3 border-t border-white/20 dark:border-gray-600">
-                <div className="flex items-center text-sm font-semibold text-gray-800 dark:text-white">
-                    <CalendarIcon className="w-5 h-5 mr-2.5 text-green-500 dark:text-green-400" />
-                    Appointment Confirmed
-                </div>
-                <div className="mt-2 pl-[2.125rem] text-xs space-y-1 text-gray-600 dark:text-gray-300">
-                  <p><span className="font-semibold opacity-80">For:</span> {message.appointmentDetails.name}</p>
-                  <p><span className="font-semibold opacity-80">When:</span> {message.appointmentDetails.formattedSlot}</p>
-                </div>
-              </div>
-          )}
            {message.type === 'service-ticket-confirmation' && message.ticketId && (
               <div className="mt-3 pt-2 border-t border-white/20 dark:border-gray-600 text-xs">
                 <span className="font-semibold opacity-80">Ticket ID:</span>
@@ -87,15 +72,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit,
           </div>
         )}
 
-        {message.type === 'appointment-form' && (
-            <div className={`transition-opacity duration-500 mt-2 ${message.isSubmitted ? 'opacity-60' : 'opacity-100'}`}>
-                <AppointmentForm
-                    messageId={message.id}
-                    onSubmit={onAppointmentSubmit}
-                    isSubmitted={!!message.isSubmitted}
-                    availableSlots={availableSlots}
-                    isCalendarLoading={isCalendarLoading}
-                />
+        {message.type === 'appointment-form' && !message.isSubmitted && (
+            <div className="mt-2">
+                <HubSpotMeeting />
             </div>
         )}
 

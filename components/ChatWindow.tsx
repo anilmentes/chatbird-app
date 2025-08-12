@@ -1,21 +1,18 @@
 
 import React, { useEffect, useRef } from 'react';
-import { Message, InformationChannelDetails, ServiceTicketDetails, AppointmentDetails } from '../types';
+import { Message, InformationChannelDetails, ServiceTicketDetails } from '../types';
 import ChatMessage from './ChatMessage';
 import { ChatBirdLogoIcon } from './Icon';
 
 interface ChatWindowProps {
   messages: Message[];
   isLoading: boolean;
-  onAppointmentSubmit: (messageId: string, details: AppointmentDetails) => void;
   onInfoChannelSubmit: (messageId: string, details: InformationChannelDetails) => void;
   onServiceTicketSubmit: (messageId: string, details: ServiceTicketDetails) => void;
   onInitialOptionClick: (prompt: string) => void;
-  availableSlots: Map<string, Date[]>;
-  isCalendarLoading: boolean;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onAppointmentSubmit, onInfoChannelSubmit, onServiceTicketSubmit, onInitialOptionClick, availableSlots, isCalendarLoading }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onInfoChannelSubmit, onServiceTicketSubmit, onInitialOptionClick }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,12 +26,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onAppointm
           <ChatMessage 
             key={msg.id} 
             message={msg} 
-            onAppointmentSubmit={onAppointmentSubmit}
             onInfoChannelSubmit={onInfoChannelSubmit}
             onServiceTicketSubmit={onServiceTicketSubmit}
             onInitialOptionClick={onInitialOptionClick}
-            availableSlots={availableSlots}
-            isCalendarLoading={isCalendarLoading}
            />
         ))}
         {isLoading && (

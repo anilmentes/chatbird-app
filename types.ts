@@ -1,11 +1,10 @@
 
-
 export interface AppointmentDetails {
   name: string;
   email: string;
   company?: string;
   notes: string;
-  selectedSlot: string; // ISO string
+  selectedSlot: string;
 }
 
 export interface InformationChannelDetails {
@@ -31,12 +30,8 @@ export interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot';
-  type?: 'text' | 'appointment-form' | 'appointment-confirmation' | 'info-channel-form' | 'info-channel-confirmation' | 'service-ticket-form' | 'service-ticket-confirmation' | 'initial-options';
+  type?: 'text' | 'appointment-form' | 'info-channel-form' | 'info-channel-confirmation' | 'service-ticket-form' | 'service-ticket-confirmation' | 'initial-options';
   isSubmitted?: boolean; // Kept for visual feedback on forms after submission
   sources?: WebSource[];
   ticketId?: string;
-  appointmentDetails?: {
-    name: string;
-    formattedSlot: string;
-  };
 }
