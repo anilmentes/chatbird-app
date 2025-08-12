@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Message, AppointmentDetails, InformationChannelDetails, ServiceTicketDetails } from './types';
+import { Message, InformationChannelDetails, ServiceTicketDetails, AppointmentDetails } from './types';
 import { sendMessageToGemini } from './services/geminiService';
 import Header from './components/Header';
 import ChatWindow from './components/ChatWindow';
@@ -24,6 +24,39 @@ const App: React.FC = () => {
       },
     ]);
   }, []);
+
+  // Fetch availability when an appointment form is shown
+  useEffect(() => {
+    const shouldFetch = messages.some(m => m.type === 'appointment-form' && !m.isSubmitted);
+    if (shouldFetch && availableSlots.size === 0) {
+        const fetchAvailability = async () => {
+            setIsCalendarLoading(true);
+            try {
+                const response = await fetch('/api/get-availability');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to fetch availability');
+                }
+                const { slots } = await response.json();
+                // API returns [key, value[]] with date strings. Convert back to Date objects.
+                const slotsMap = new Map<string, Date[]>(
+                    slots.map(([day, times]: [string, string[]]) => [
+                        day,
+                        times.map(t => new Date(t))
+                    ])
+                );
+                setAvailableSlots(slotsMap);
+            } catch (err) {
+                const errorMessage = err instanceof Error ? err.message : "Could not load appointment calendar.";
+                addErrorMessage(`Sorry, something went wrong. ${errorMessage}`);
+                setError(errorMessage);
+            } finally {
+                setIsCalendarLoading(false);
+            }
+        };
+        fetchAvailability();
+    }
+  }, [messages]);
   
   const addErrorMessage = (text: string) => {
       setMessages(prev => [...prev, {
@@ -32,30 +65,6 @@ const App: React.FC = () => {
         sender: 'bot',
         type: 'text'
       }]);
-  };
-
-  const fetchAvailableSlots = async (messageId: string) => {
-    setIsCalendarLoading(true);
-    setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, isCalendarLoading: true } : msg));
-    try {
-        const response = await fetch('/api/get-availability');
-        if (!response.ok) throw new Error('Failed to fetch availability.');
-        const data = await response.json();
-        const slotsMap = new Map<string, Date[]>(data.slots.map(([day, times]: [string, string[]]) => [
-            day,
-            times.map(t => new Date(t))
-        ]));
-        setAvailableSlots(slotsMap);
-        setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, availableSlots: slotsMap, isCalendarLoading: false } : msg));
-    } catch (e) {
-        console.error(e);
-        addErrorMessage("Sorry, I couldn't load the appointment calendar right now. Please try again later.");
-        setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, isCalendarLoading: false, isSubmitted: true } : msg));
-    } finally {
-        setIsCalendarLoading(false);
-        // Ensure the loading state is removed from the specific message
-        setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, isCalendarLoading: false } : msg));
-    }
   };
 
   const handleInitialOptionClick = (prompt: string) => {
@@ -91,7 +100,6 @@ const App: React.FC = () => {
       switch (requestType) {
         case 'appointment':
           botMessage.type = 'appointment-form';
-          fetchAvailableSlots(botMessage.id);
           break;
         case 'info-channel':
           botMessage.type = 'info-channel-form';
@@ -112,41 +120,52 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   };
-
+  
   const handleAppointmentSubmit = async (messageId: string, details: AppointmentDetails) => {
-     setMessages(prev => prev.map(msg => (msg.id === messageId ? { ...msg, isSubmitted: true } : msg)));
-     
-     try {
+    setMessages(prev => prev.map(msg => (msg.id === messageId ? { ...msg, isSubmitted: true } : msg)));
+    
+    try {
         const response = await fetch('/api/create-meeting', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(details)
+            body: JSON.stringify(details),
         });
-        if(!response.ok) {
+
+        if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to book appointment.');
+            throw new Error(errorData.message || 'Failed to schedule appointment.');
         }
-        const { meetingId } = await response.json();
-        
-        const selectedDate = new Date(details.selectedSlot);
-        const confirmationText = `Thank you, ${details.name}. Your appointment for ${selectedDate.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })} is confirmed. A confirmation has been sent to ${details.email}.`;
+
+        await response.json(); // contains meetingId, can be used if needed
+
+        const formattedSlot = new Date(details.selectedSlot).toLocaleString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+        });
 
         const confirmationMessage: Message = {
-          id: `bot-${Date.now()}`,
-          sender: 'bot',
-          type: 'appointment-confirmation',
-          text: confirmationText,
-          bookingId: meetingId,
+            id: `bot-${Date.now()}`,
+            sender: 'bot',
+            type: 'appointment-confirmation',
+            text: `Thank you, ${details.name}! Your appointment is confirmed. A calendar invitation has been sent to ${details.email}.`,
+            appointmentDetails: {
+                name: details.name,
+                formattedSlot: formattedSlot
+            }
         };
         setMessages(prev => [...prev, confirmationMessage]);
 
-     } catch(e) {
+    } catch (e) {
         console.error(e);
-        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while booking.";
-        addErrorMessage(`There was a problem confirming your appointment. ${errorMessage}`);
-     }
+        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while scheduling the appointment.";
+        addErrorMessage(`There was a problem scheduling your appointment. ${errorMessage}`);
+    }
   };
-  
+
   const handleInfoChannelSubmit = (messageId: string, details: InformationChannelDetails) => {
     // This is a mock submission as we don't have a backend for it yet.
     setMessages(prev =>
@@ -207,6 +226,8 @@ const App: React.FC = () => {
         onInfoChannelSubmit={handleInfoChannelSubmit}
         onServiceTicketSubmit={handleServiceTicketSubmit}
         onInitialOptionClick={handleInitialOptionClick}
+        availableSlots={availableSlots}
+        isCalendarLoading={isCalendarLoading}
       />
       <MessageInput onSendMessage={handleSendMessage} isLoading={isLoading} />
     </div>

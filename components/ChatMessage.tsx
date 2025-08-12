@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { Message, AppointmentDetails, InformationChannelDetails, ServiceTicketDetails } from '../types';
+import { Message, InformationChannelDetails, ServiceTicketDetails, AppointmentDetails } from '../types';
 import { UserIcon, ChatBirdLogoIcon, LinkIcon, CalendarIcon, WrenchIcon, EnvelopeIcon } from './Icon';
-import AppointmentForm from './AppointmentForm';
 import InformationChannelForm from './InformationChannelForm';
 import ServiceTicketForm from './ServiceTicketForm';
+import AppointmentForm from './AppointmentForm';
 
 
 interface ChatMessageProps {
@@ -13,28 +13,13 @@ interface ChatMessageProps {
   onInfoChannelSubmit: (messageId: string, details: InformationChannelDetails) => void;
   onServiceTicketSubmit: (messageId: string, details: ServiceTicketDetails) => void;
   onInitialOptionClick: (prompt: string) => void;
+  availableSlots: Map<string, Date[]>;
+  isCalendarLoading: boolean;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit, onInfoChannelSubmit, onServiceTicketSubmit, onInitialOptionClick }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit, onInfoChannelSubmit, onServiceTicketSubmit, onInitialOptionClick, availableSlots, isCalendarLoading }) => {
   const isUser = message.sender === 'user';
   
-  const getDisplaySlot = (isoString: string | undefined): string => {
-    if (!isoString) return 'your selected time';
-    try {
-        return new Date(isoString).toLocaleString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true,
-        });
-    } catch {
-        return 'your selected time'
-    }
-  }
-
-
   return (
     <div className={`flex items-start gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-bold ${isUser ? 'bg-gray-600 text-white' : 'bg-blue-500 text-white'}`}>
@@ -49,10 +34,16 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit,
           }`}
         >
           {message.text}
-           {message.type === 'appointment-confirmation' && message.bookingId && (
-              <div className="mt-3 pt-2 border-t border-white/20 dark:border-gray-600 text-xs">
-                <span className="font-semibold opacity-80">Booking ID:</span>
-                <span className="font-mono ml-2 bg-white/20 dark:bg-gray-800/50 px-1.5 py-0.5 rounded-sm">{message.bookingId}</span>
+          {message.type === 'appointment-confirmation' && message.appointmentDetails && (
+              <div className="mt-3 pt-3 border-t border-white/20 dark:border-gray-600">
+                <div className="flex items-center text-sm font-semibold text-gray-800 dark:text-white">
+                    <CalendarIcon className="w-5 h-5 mr-2.5 text-green-500 dark:text-green-400" />
+                    Appointment Confirmed
+                </div>
+                <div className="mt-2 pl-[2.125rem] text-xs space-y-1 text-gray-600 dark:text-gray-300">
+                  <p><span className="font-semibold opacity-80">For:</span> {message.appointmentDetails.name}</p>
+                  <p><span className="font-semibold opacity-80">When:</span> {message.appointmentDetails.formattedSlot}</p>
+                </div>
               </div>
           )}
            {message.type === 'service-ticket-confirmation' && message.ticketId && (
@@ -97,13 +88,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAppointmentSubmit,
         )}
 
         {message.type === 'appointment-form' && (
-            <div className={`transition-opacity duration-500 ${message.isSubmitted ? 'opacity-60' : 'opacity-100'}`}>
+            <div className={`transition-opacity duration-500 mt-2 ${message.isSubmitted ? 'opacity-60' : 'opacity-100'}`}>
                 <AppointmentForm
                     messageId={message.id}
                     onSubmit={onAppointmentSubmit}
                     isSubmitted={!!message.isSubmitted}
-                    availableSlots={message.availableSlots || new Map()}
-                    isCalendarLoading={!!message.isCalendarLoading}
+                    availableSlots={availableSlots}
+                    isCalendarLoading={isCalendarLoading}
                 />
             </div>
         )}

@@ -1,10 +1,11 @@
 
+
 export interface AppointmentDetails {
   name: string;
   email: string;
   company?: string;
   notes: string;
-  selectedSlot: string; // This should be the ISO string of the selected time
+  selectedSlot: string; // ISO string
 }
 
 export interface InformationChannelDetails {
@@ -32,9 +33,10 @@ export interface Message {
   sender: 'user' | 'bot';
   type?: 'text' | 'appointment-form' | 'appointment-confirmation' | 'info-channel-form' | 'info-channel-confirmation' | 'service-ticket-form' | 'service-ticket-confirmation' | 'initial-options';
   isSubmitted?: boolean; // Kept for visual feedback on forms after submission
-  availableSlots?: Map<string, Date[]>;
-  isCalendarLoading?: boolean; // For showing loading state on appointment form
   sources?: WebSource[];
-  bookingId?: string;
   ticketId?: string;
+  appointmentDetails?: {
+    name: string;
+    formattedSlot: string;
+  };
 }
