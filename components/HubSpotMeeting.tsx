@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 
 const HubSpotMeeting: React.FC = () => {
@@ -31,7 +30,7 @@ const HubSpotMeeting: React.FC = () => {
             <div 
                 className="meetings-iframe-container" 
                 // This is the scheduling link provided in the prompt.
-                data-src="https://meetings-eu1.hubspot.com/anil-emre?embed=true"
+                data-src="https://meetings.hubspot.com/benjamin-braun1?embed=true"
             ></div>
         </div>
     );
