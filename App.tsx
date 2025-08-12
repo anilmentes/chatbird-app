@@ -86,21 +86,41 @@ const App: React.FC = () => {
     }
   };
 
-  const handleInfoChannelSubmit = (messageId: string, details: InformationChannelDetails) => {
-    // This is a mock submission as we don't have a backend for it yet.
+  const handleInfoChannelSubmit = async (messageId: string, details: InformationChannelDetails) => {
     setMessages(prev =>
       prev.map(msg =>
         msg.id === messageId ? { ...msg, isSubmitted: true } : msg
       )
     );
-    const confirmationMessage: Message = {
-      id: `bot-${Date.now()}`,
-      sender: 'bot',
-      type: 'info-channel-confirmation',
-      text: `Thank you, ${details.name}! You have been subscribed to the "${details.channel}" channel. We'll send updates to ${details.email}.`,
-    };
-    setMessages(prev => [...prev, confirmationMessage]);
-    console.log("Info Channel Subscription:", details);
+
+    try {
+        const response = await fetch('/api/subscribe-channel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(details)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to subscribe.');
+        }
+
+        const { subscriptionId } = await response.json();
+        console.log("Subscription successful with ID:", subscriptionId);
+
+        const confirmationMessage: Message = {
+          id: `bot-${Date.now()}`,
+          sender: 'bot',
+          type: 'info-channel-confirmation',
+          text: `Thank you, ${details.name}! You have been subscribed to the "${details.channel}" channel. We'll send updates to ${details.email}.`,
+        };
+        setMessages(prev => [...prev, confirmationMessage]);
+
+    } catch (e) {
+        console.error(e);
+        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during subscription.";
+        addErrorMessage(`There was a problem subscribing you. ${errorMessage}`);
+    }
   };
   
   const handleServiceTicketSubmit = async (messageId: string, details: ServiceTicketDetails) => {

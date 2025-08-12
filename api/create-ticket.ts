@@ -1,4 +1,7 @@
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { kv } from '@vercel/kv';
+import { Resend } from 'resend';
 import { ServiceTicketDetails } from '../../types';
 
 export default async function handler(
@@ -9,6 +12,17 @@ export default async function handler(
     return response.status(405).json({ message: 'Only POST requests are allowed' });
   }
 
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const supportEmail = process.env.SUPPORT_EMAIL_ADDRESS;
+  const senderEmail = process.env.SENDER_EMAIL_ADDRESS;
+  
+  if (!resendApiKey || !supportEmail || !senderEmail) {
+    console.error("Missing Resend or Email Configuration Environment Variables");
+    return response.status(500).json({ message: 'Server configuration error: Email service is not configured.' });
+  }
+
+  const resend = new Resend(resendApiKey);
+
   try {
     const details: ServiceTicketDetails = request.body;
 
@@ -17,16 +31,29 @@ export default async function handler(
       return response.status(400).json({ message: 'Missing required ticket details.' });
     }
     
-    // Generate a unique ticket ID
     const ticketId = `TICKET-${Date.now()}`;
 
-    // --- In a real application, you would save this to a database ---
-    // For now, we just log it to the serverless function logs on Vercel
-    console.log('--- New Service Ticket Created ---');
-    console.log('Ticket ID:', ticketId);
-    console.log('Details:', JSON.stringify(details, null, 2));
-    console.log('------------------------------------');
-    // ----------------------------------------------------------------
+    // 1. Save the ticket to Vercel KV database
+    await kv.set(`ticket:${ticketId}`, details);
+    
+    // 2. Send an email notification
+    await resend.emails.send({
+        from: `ChatBird Notification <${senderEmail}>`,
+        to: [supportEmail],
+        subject: `New Service Ticket from ${details.firstName} ${details.lastName}: ${ticketId}`,
+        html: `
+            <h1>New Service Ticket Created</h1>
+            <p>A new service ticket has been submitted through the ChatBird assistant.</p>
+            <ul>
+                <li><strong>Ticket ID:</strong> ${ticketId}</li>
+                <li><strong>Name:</strong> ${details.firstName} ${details.lastName}</li>
+                <li><strong>Email:</strong> ${details.email}</li>
+                <li><strong>Company:</strong> ${details.company || 'N/A'}</li>
+            </ul>
+            <h2>Description:</h2>
+            <p style="white-space: pre-wrap; background-color: #f4f4f4; padding: 15px; border-radius: 5px;">${details.description}</p>
+        `,
+    });
 
     // Return the ticket ID to the frontend for confirmation
     return response.status(200).json({ ticketId });
